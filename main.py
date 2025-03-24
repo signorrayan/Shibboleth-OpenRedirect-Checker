@@ -38,7 +38,7 @@ async def check_domain(session: aiohttp.ClientSession, domain: str) -> Tuple[str
         return domain, False, f"Error: {str(e)}", False
 
 
-async def check_domains_live(domains: List[str], success_only: bool = False, max_concurrent: int = 50) -> List[
+async def check_domains_live(domains: List[str], success_only: bool = False, max_concurrent: int = 100) -> List[
     Tuple[str, bool, str, bool]]:
     ssl_context = False
     conn = aiohttp.TCPConnector(ssl=ssl_context, limit=max_concurrent)
@@ -98,8 +98,8 @@ async def main():
     parser.add_argument('file', nargs='?', help='File containing domains (one per line)')
     parser.add_argument('--success-only', '-s', action='store_true',
                         help='Show only successful domains')
-    parser.add_argument('--concurrent', '-c', type=int, default=200,
-                        help='Maximum number of concurrent requests (default: 50)')
+    parser.add_argument('--concurrent', '-c', type=int, default=100,
+                        help='Maximum number of concurrent requests (default: 100)')
     args = parser.parse_args()
 
     if args.file:
