@@ -13,7 +13,6 @@ async def check_domain(session: aiohttp.ClientSession, domain: str) -> Tuple[str
     Returns tuple of (domain, path_exists, message, is_vulnerable)
     """
     base_url = urljoin(domain, '/Shibboleth.sso/Logout')
-    debug_info = []
 
     try:
         async with session.get(base_url, timeout=ClientTimeout(total=30)) as response:
@@ -26,26 +25,17 @@ async def check_domain(session: aiohttp.ClientSession, domain: str) -> Tuple[str
                     redirect_text = await redirect_response.text()
                     location = redirect_response.headers.get('location', '')
 
-                    debug_info.append(f"Redirect Status: {redirect_response.status}")
-                    debug_info.append(f"Location Header: {location}")
-                    debug_info.append(f"Redirect Response Length: {len(redirect_text)}")
-                    debug_info.append(f"Has github.com in text: {'github.com' in redirect_text}")
-                    debug_info.append(f"Has github.com in location: {'github.com' in location}")
-
                     is_vulnerable = ('github.com' in redirect_text.lower() or
                                      'github.com' in location.lower())
 
-                    debug_msg = " | ".join(debug_info)
-                    print(f"\nDEBUG [{domain}/Shibboleth.sso/Logout?return=https://google.com]: {debug_msg}")
-
-                    return domain, True, debug_msg, is_vulnerable
+                    return domain, True, "Have Shibboleth SSO", is_vulnerable
 
             return domain, False, "", False
 
     except asyncio.TimeoutError:
         return domain, False, "Timeout", False
     except Exception as e:
-        return domain, False, f"Error: {str(e)} | Debug: {' | '.join(debug_info)}", False
+        return domain, False, f"Error: {str(e)}", False
 
 
 async def check_domains_live(domains: List[str], success_only: bool = False, max_concurrent: int = 50) -> List[
@@ -58,7 +48,7 @@ async def check_domains_live(domains: List[str], success_only: bool = False, max
         tasks = [check_domain(session, domain) for domain in domains]
 
         if success_only:
-            print("\n=== Successful Domains ===")
+            print("\n=== Potential Vulnerable Domains ===")
         else:
             print("\n=== Live Results ===")
         print("-" * 80)
@@ -76,13 +66,11 @@ def print_result(result: Tuple[str, bool, str, bool], success_only: bool = False
     if path_exists:
         vuln_status = "🔴" if is_vulnerable else "🟢"
         if is_vulnerable:
-            print(f"{vuln_status} {domain}/Shibboleth.sso/Logout?return=https://github.com")
+            print(f"{vuln_status} Vulnerable: {domain}/Shibboleth.sso/Logout?return=https://github.com")
         if not success_only:
             print(f"DEBUG [{domain}]: {message}")
     elif not success_only:
         print(f"✗ {domain}")
-        print(f"DEBUG [{domain}]: {message}")
-
 
 def print_summary(results: List[Tuple[str, bool, str, bool]]):
     successful = [(domain, is_vuln) for domain, success, _, is_vuln in results if success]
@@ -94,14 +82,8 @@ def print_summary(results: List[Tuple[str, bool, str, bool]]):
 
     print(f"\n=== Summary ===")
     print(f"Total domains checked: {total_domains}")
-    print(f"Successful paths found: {total_successful}")
+    print(f"Number of assets that have Shibboleth SSO: {total_successful}")
     print(f"Vulnerable to open redirect: {total_vulnerable}")
-
-    if vulnerable:
-        print("\n=== Vulnerable Domains ===")
-        print("-" * 80)
-        for domain in vulnerable:
-            print(f"{domain}/Shibboleth.sso/Logout?return=https://github.com")
 
 
 async def ensure_https(domain: str) -> str:
